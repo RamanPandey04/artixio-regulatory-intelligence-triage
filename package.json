@@ -1,0 +1,25 @@
+{
+  "name": "artixio-regulatory-triage",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:generate": "pnpm --filter @artixio/db db:generate",
+    "db:migrate": "dotenv -e .env -- pnpm --filter @artixio/db db:migrate",
+    "db:migrate:create": "dotenv -e .env -- pnpm --filter @artixio/db exec prisma migrate dev",
+    "db:status": "dotenv -e .env -- pnpm --filter @artixio/db exec prisma migrate status",
+    "db:seed": "dotenv -e .env -- pnpm --filter @artixio/db db:seed",
+    "dev": "dotenv -e .env -- pnpm --parallel --filter @artixio/api --filter @artixio/web dev",
+    "dev:api": "dotenv -e .env -- pnpm --filter @artixio/api dev",
+    "dev:web": "dotenv -e .env -- pnpm --filter @artixio/web dev",
+    "build:web": "pnpm --filter @artixio/web build",
+    "test:api": "dotenv -e .env -- pnpm --filter @artixio/api test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "dotenv-cli": "^8.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

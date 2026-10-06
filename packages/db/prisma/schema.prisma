@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DirectiveStatus {
+  ACTIVE
+  SUPERSEDED
+  WITHDRAWN
+  NEEDS_REVIEW
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ActionStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  NEEDS_REVIEW
+}
+
+enum IssueSeverity {
+  WARNING
+  ERROR
+}
+
+enum IssueCode {
+  MISSING_EFFECTIVE_DATE
+  EFFECTIVE_BEFORE_PUBLICATION
+  CONFLICTING_SOURCE_STATUS
+  MALFORMED_TEXT
+  RESOLVED_WITHOUT_TIMESTAMP
+  OVERDUE_PENDING_ACTION
+  IMPORTANT_ACTION_WITHOUT_DUE_DATE
+}
+
+model RegulatoryAuthority {
+  id         String                @id @default(uuid()) @db.Uuid
+  code       String                @unique @db.VarChar(32)
+  name       String                @db.VarChar(160)
+  jurisdiction String             @db.VarChar(100)
+  directives ComplianceDirective[]
+}
+
+model ComplianceDirective {
+  id             String              @id @default(uuid()) @db.Uuid
+  authorityId    String              @db.Uuid
+  authority      RegulatoryAuthority @relation(fields: [authorityId], references: [id], onDelete: Restrict)
+  sourceSystem   String              @db.VarChar(64)
+  sourceId       String              @db.VarChar(80)
+  reference      String              @db.VarChar(80)
+  title          String              @db.VarChar(300)
+  summary        String              @db.Text
+  sourceStatus   String              @db.VarChar(100)
+  status         DirectiveStatus
+  priority       Priority
+  publishedAt    DateTime            @db.Date
+  effectiveAt    DateTime?           @db.Date
+  rawSource      Json
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  actions        ActionItem[]
+  issues         DataQualityIssue[]
+
+  @@unique([sourceSystem, sourceId])
+  @@index([authorityId, publishedAt])
+  @@index([status, priority])
+}
+
+model ActionItem {
+  id           String              @id @default(uuid()) @db.Uuid
+  directiveId  String              @db.Uuid
+  directive    ComplianceDirective @relation(fields: [directiveId], references: [id], onDelete: Cascade)
+  sourceId     String              @db.VarChar(80)
+  title        String              @db.VarChar(300)
+  sourceStatus String              @db.VarChar(100)
+  status       ActionStatus
+  important    Boolean             @default(false)
+  dueAt        DateTime?           @db.Date
+  resolvedAt   DateTime?
+  updatedAt    DateTime            @updatedAt
+  issues       DataQualityIssue[]
+  statusHistory ActionItemStatusHistory[]
+
+  @@unique([directiveId, sourceId])
+  @@unique([id, directiveId])
+  @@index([status, dueAt])
+}
+
+model ActionItemStatusHistory {
+  id             String       @id @default(uuid()) @db.Uuid
+  actionItemId   String       @db.Uuid
+  actionItem     ActionItem   @relation(fields: [actionItemId], references: [id], onDelete: Cascade)
+  previousStatus ActionStatus
+  newStatus      ActionStatus
+  changedAt      DateTime     @default(now())
+
+  @@index([actionItemId, changedAt])
+}
+
+model DataQualityIssue {
+  id          String              @id @default(uuid()) @db.Uuid
+  directiveId String              @db.Uuid
+  directive   ComplianceDirective @relation(fields: [directiveId], references: [id], onDelete: Cascade)
+  actionId    String?             @db.Uuid
+  action      ActionItem?         @relation(fields: [actionId, directiveId], references: [id, directiveId], onDelete: Cascade)
+  code        IssueCode
+  severity    IssueSeverity
+  field       String              @db.VarChar(100)
+  rawValue    String?             @db.Text
+  explanation String              @db.Text
+  createdAt   DateTime            @default(now())
+
+  @@index([directiveId, severity])
+  @@index([code])
+}
