@@ -1,8 +1,13 @@
+/**
+ * Repeatable fictional feed for local review. It stores both the untouched
+ * source payload and the domain's normalized records with quality issues.
+ */
 import { Prisma, PrismaClient } from '@prisma/client';
 import { normalizeDirective, type SourceDirective } from '@artixio/domain';
 
 const prisma = new PrismaClient();
 const sourceSystem = 'ARTIXIO_SIMULATED_FEED';
+// Fix the evaluation date so overdue flags do not change between seed runs.
 const simulatedAsOf = new Date('2026-10-06T00:00:00.000Z');
 
 const authorities = [
@@ -27,6 +32,7 @@ function addDays(date: Date, days: number): string {
   return isoDate(new Date(date.getTime() + days * 86_400_000));
 }
 
+// Generate ordinary records first, then override a few to exercise review cases.
 function makeSource(index: number): SourceDirective {
   const authority = authorities[index % authorities.length]!;
   const topic = topics[index % topics.length]!;
@@ -52,7 +58,7 @@ function makeSource(index: number): SourceDirective {
     }],
   };
 
-  // Each override is deliberate and retained unchanged in rawSource.
+  // Directive-level gaps, contradictions, and malformed text remain in rawSource.
   if (index === 2) source.effectiveAt = null;
   if (index === 7) source.effectiveAt = addDays(published, -5);
   if (index === 12) source.sourceStatus = 'ACTIVE / WITHDRAWN';
@@ -60,6 +66,7 @@ function makeSource(index: number): SourceDirective {
     source.title = 'Supplier\u0007  traceability   update';
     source.summary = 'Simulated\t\ttraceability  requirements\nfor  review.';
   }
+  // Action anomalies test resolution evidence, overdue work, and missing deadlines.
   if (index === 22) {
     source.actions[0]!.sourceStatus = 'RESOLVED';
     source.actions[0]!.resolvedAt = null;
@@ -76,6 +83,7 @@ function makeSource(index: number): SourceDirective {
   return source;
 }
 
+// Rebuild only this feed in one transaction, leaving unrelated directives alone.
 async function main(): Promise<void> {
   const sources = Array.from({ length: 48 }, (_, index) => makeSource(index));
 
@@ -90,7 +98,7 @@ async function main(): Promise<void> {
       authorityIds.set(authority.code, row.id);
     }
 
-    // Re-running the seed resets only this simulated feed; other directives remain untouched.
+    // Deleting the old feed also resets its action edits and history on reseed.
     await tx.complianceDirective.deleteMany({ where: { sourceSystem } });
 
     for (const [index, source] of sources.entries()) {
@@ -109,6 +117,7 @@ async function main(): Promise<void> {
           priority: normalized.priority,
           publishedAt: normalized.publishedAt,
           effectiveAt: normalized.effectiveAt,
+          // Never serialize the normalized object as the source evidence.
           rawSource: source as unknown as Prisma.InputJsonValue,
         },
       });

@@ -1,3 +1,7 @@
+/**
+ * Source-to-domain normalization. Ambiguous source values become review work
+ * and quality issues rather than widening the canonical enums.
+ */
 export const directiveStatuses = ['ACTIVE', 'SUPERSEDED', 'WITHDRAWN', 'NEEDS_REVIEW'] as const;
 export type DirectiveStatus = (typeof directiveStatuses)[number];
 
@@ -77,6 +81,7 @@ export interface NormalizedDirective {
 
 const controlCharacters = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
+// Remove control characters from display text; the caller keeps the raw source separately.
 export function cleanText(value: string): string {
   return value.replace(controlCharacters, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -84,17 +89,20 @@ export function cleanText(value: string): string {
 function normalizedStatus(sourceStatus: string): DirectiveStatus {
   const cleaned = cleanText(sourceStatus).toUpperCase();
   if (cleaned === 'ACTIVE' || cleaned === 'SUPERSEDED' || cleaned === 'WITHDRAWN') return cleaned;
+  // A compound or unknown status cannot safely be mapped to one regulatory state.
   return 'NEEDS_REVIEW';
 }
 
 function normalizedActionStatus(sourceStatus: string, resolvedAt: string | null): ActionStatus {
   const cleaned = cleanText(sourceStatus).toUpperCase();
+  // The database requires a timestamp for a resolved canonical action.
   if (cleaned === 'RESOLVED') return resolvedAt === null ? 'NEEDS_REVIEW' : 'RESOLVED';
   if (cleaned === 'PENDING' || cleaned === 'IN_PROGRESS') return cleaned;
   return 'NEEDS_REVIEW';
 }
 
-// The source is retained by the caller; this function only derives canonical values and issues.
+// Derive display values and review flags without changing the caller's source object.
+// The seed stores that original object in rawSource for later audit.
 export function normalizeDirective(source: SourceDirective, now: Date): NormalizedDirective {
   const issues: QualityIssue[] = [];
   const title = cleanText(source.title);
@@ -118,6 +126,7 @@ export function normalizeDirective(source: SourceDirective, now: Date): Normaliz
 
   const publishedAt = new Date(source.publishedAt);
   const effectiveAt = source.effectiveAt === null ? null : new Date(source.effectiveAt);
+  // Missing or contradictory dates stay visible; an issue explains why review is needed.
   if (effectiveAt === null) {
     issues.push({
       code: 'MISSING_EFFECTIVE_DATE', severity: 'WARNING', field: 'effectiveAt',
@@ -135,6 +144,7 @@ export function normalizeDirective(source: SourceDirective, now: Date): Normaliz
     const dueAt = action.dueAt === null ? null : new Date(action.dueAt);
     const resolvedAt = action.resolvedAt === null ? null : new Date(action.resolvedAt);
     const actionStatus = normalizedActionStatus(action.sourceStatus, action.resolvedAt);
+    // A source claim of resolution without evidence cannot enter RESOLVED canonically.
     if (cleanText(action.sourceStatus).toUpperCase() === 'RESOLVED' && resolvedAt === null) {
       issues.push({
         code: 'RESOLVED_WITHOUT_TIMESTAMP', severity: 'ERROR', field: 'actions.resolvedAt',

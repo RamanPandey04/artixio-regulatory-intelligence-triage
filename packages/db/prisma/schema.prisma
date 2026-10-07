@@ -1,3 +1,4 @@
+// Canonical records use strict enums; raw source values remain alongside them.
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,6 +12,7 @@ enum DirectiveStatus {
   ACTIVE
   SUPERSEDED
   WITHDRAWN
+  // Ambiguous source status is routed to human review rather than guessed.
   NEEDS_REVIEW
 }
 
@@ -60,11 +62,13 @@ model ComplianceDirective {
   reference      String              @db.VarChar(80)
   title          String              @db.VarChar(300)
   summary        String              @db.Text
+  // Keep the original status label beside the canonical enum.
   sourceStatus   String              @db.VarChar(100)
   status         DirectiveStatus
   priority       Priority
   publishedAt    DateTime            @db.Date
   effectiveAt    DateTime?           @db.Date
+  // Workflow edits never change the source evidence.
   rawSource      Json
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -86,16 +90,19 @@ model ActionItem {
   status       ActionStatus
   important    Boolean             @default(false)
   dueAt        DateTime?           @db.Date
+  // A database check requires this exactly when status is RESOLVED.
   resolvedAt   DateTime?
   updatedAt    DateTime            @updatedAt
   issues       DataQualityIssue[]
   statusHistory ActionItemStatusHistory[]
 
   @@unique([directiveId, sourceId])
+  // Supports the issue relation's same-directive foreign key.
   @@unique([id, directiveId])
   @@index([status, dueAt])
 }
 
+// A separate row records each actual status transition.
 model ActionItemStatusHistory {
   id             String       @id @default(uuid()) @db.Uuid
   actionItemId   String       @db.Uuid
@@ -112,6 +119,7 @@ model DataQualityIssue {
   directiveId String              @db.Uuid
   directive   ComplianceDirective @relation(fields: [directiveId], references: [id], onDelete: Cascade)
   actionId    String?             @db.Uuid
+  // The composite relation prevents an issue from pointing to another directive's action.
   action      ActionItem?         @relation(fields: [actionId, directiveId], references: [id, directiveId], onDelete: Cascade)
   code        IssueCode
   severity    IssueSeverity

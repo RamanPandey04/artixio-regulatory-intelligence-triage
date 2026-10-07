@@ -1,6 +1,11 @@
+/**
+ * Database queries for directive triage. Filters and pagination run in
+ * PostgreSQL; only the bounded result page is shaped for the table.
+ */
 import { Prisma, type PrismaClient } from '@prisma/client';
 import type { DirectiveQuery } from './validation';
 
+// Compose validated filters as one database predicate so combinations stay consistent.
 export async function listDirectives(prisma: PrismaClient, query: DirectiveQuery) {
   const and: Prisma.ComplianceDirectiveWhereInput[] = [];
   if (query.search) {
@@ -17,6 +22,7 @@ export async function listDirectives(prisma: PrismaClient, query: DirectiveQuery
   if (query.issueSeverity) and.push({ issues: { some: { severity: query.issueSeverity } } });
   const where: Prisma.ComplianceDirectiveWhereInput = { AND: and };
 
+  // Select a Prisma order expression from known fields; never interpolate input into SQL.
   const sortFields = {
     publishedAt: { publishedAt: query.sortOrder },
     effectiveAt: { effectiveAt: query.sortOrder },
@@ -26,6 +32,7 @@ export async function listDirectives(prisma: PrismaClient, query: DirectiveQuery
     status: { status: query.sortOrder },
   } satisfies Record<DirectiveQuery['sortBy'], Prisma.ComplianceDirectiveOrderByWithRelationInput>;
 
+  // Fetch related issue/action data for this page, avoiding a query per table row.
   const [total, rows] = await prisma.$transaction([
     prisma.complianceDirective.count({ where }),
     prisma.complianceDirective.findMany({
@@ -64,6 +71,7 @@ export async function listDirectives(prisma: PrismaClient, query: DirectiveQuery
   };
 }
 
+// Detail keeps raw source and issue history available for regulatory review.
 export function getDirective(prisma: PrismaClient, id: string) {
   return prisma.complianceDirective.findUnique({
     where: { id },

@@ -1,3 +1,4 @@
+/** API behavior against migrated, isolated fixtures rather than mocked Prisma calls. */
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
@@ -14,6 +15,7 @@ const app = createApp(prisma);
 let directiveId: string;
 let actionId: string;
 
+// Reset fixtures so status and history assertions do not depend on test order.
 beforeEach(async () => {
   await prisma.complianceDirective.deleteMany();
   await prisma.regulatoryAuthority.deleteMany();
@@ -28,8 +30,8 @@ beforeEach(async () => {
     authorityId: nmc.id, sourceSystem, sourceId: 'T-001', reference: 'NMC-001',
     title: 'Clinical reporting notice', summary: 'Adverse event reporting.',
     sourceStatus: 'ACTIVE', status: 'ACTIVE', priority: 'HIGH',
-    publishedAt: new Date('2026-01-01'), effectiveAt: new Date('2026-02-01'),
-    rawSource: { title: 'Clinical reporting notice', sourceStatus: 'ACTIVE' },
+    publishedAt: new Date('2026-01-01'), effectiveAt: new Date('2025-12-31'),
+    rawSource: { title: 'Clinical reporting notice', sourceStatus: 'ACTIVE', effectiveAt: '2025-12-31' },
   } });
   directiveId = first.id;
   const action = await prisma.actionItem.create({ data: {
@@ -169,7 +171,8 @@ describe('API', () => {
     expect(response.status).toBe(404);
   });
 
-  it('sets resolvedAt and records a status transition atomically', async () => {
+  it('sets resolvedAt and records a matching status transition', async () => {
+    // Workflow edits may not rewrite source evidence or its existing quality flags.
     const before = await prisma.complianceDirective.findUniqueOrThrow({
       where: { id: directiveId }, include: { issues: true },
     });
@@ -180,6 +183,7 @@ describe('API', () => {
     const history = await prisma.actionItemStatusHistory.findMany({ where: { actionItemId: actionId } });
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ previousStatus: 'PENDING', newStatus: 'RESOLVED' });
+    // The shared timestamp ties the canonical state to its audit event.
     expect(history[0]?.changedAt.toISOString()).toBe(response.body.data.resolvedAt);
     const after = await prisma.complianceDirective.findUniqueOrThrow({
       where: { id: directiveId }, include: { issues: true },

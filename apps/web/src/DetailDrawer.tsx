@@ -1,3 +1,7 @@
+/**
+ * Directive review drawer. It shows canonical values beside quality issues
+ * and source evidence, and confirms action edits through the API.
+ */
 import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowRight, Check, Clock3, X } from 'lucide-react';
@@ -18,6 +22,7 @@ function Field({ name, value, muted = false }: { name: string; value: string; mu
   </div>;
 }
 
+// The select shows the confirmed status until the PATCH succeeds.
 function ActionCard({ action, busy, onChange }: {
   action: ActionItem;
   busy: boolean;
@@ -56,6 +61,7 @@ function ActionCard({ action, busy, onChange }: {
   </div>;
 }
 
+// Keep flagged source records readable without hiding them from the workflow.
 function DetailContent({ directive, busy, onChange, mutationError }: {
   directive: DirectiveDetail;
   busy: boolean;
@@ -112,6 +118,7 @@ function DetailContent({ directive, busy, onChange, mutationError }: {
         <summary id="source-heading" className="cursor-pointer text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Source record / audit data</summary>
         <div className="mt-3 space-y-3">
           <dl className="grid grid-cols-2 gap-3"><Field name="Source system" value={directive.sourceSystem} muted /><Field name="Source ID" value={directive.sourceId} muted /><Field name="Source status" value={directive.sourceStatus} muted /></dl>
+          {/* Raw input is audit evidence; escaped JSON and wrapping protect the drawer layout. */}
           <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-md border border-slate-200 bg-slate-50 p-3 text-[11px] leading-5 text-slate-600">{JSON.stringify(directive.rawSource, null, 2)}</pre>
         </div>
       </details>
@@ -119,6 +126,7 @@ function DetailContent({ directive, busy, onChange, mutationError }: {
   </div>;
 }
 
+// Query by directive ID so selection changes cannot reuse another directive's detail.
 export function DetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
@@ -126,6 +134,7 @@ export function DetailDrawer({ id, onClose }: { id: string; onClose: () => void 
   const detail = useQuery({ queryKey: ['directive', id], queryFn: () => fetchDirective(id) });
   const mutation = useMutation({
     mutationFn: ({ actionId, status }: { actionId: string; status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' }) => patchActionStatus(actionId, status),
+    // Refresh both views after confirmation; the server owns resolvedAt and progress.
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['directive', id] }),
@@ -134,6 +143,7 @@ export function DetailDrawer({ id, onClose }: { id: string; onClose: () => void 
     },
   });
 
+  // Keep keyboard focus in the modal and restore page scrolling on close.
   useEffect(() => {
     closeRef.current?.focus();
     const previousOverflow = document.body.style.overflow;

@@ -1,3 +1,7 @@
+/**
+ * Main triage screen. Owns server-driven filters, sorting, pagination, and
+ * selection while the API remains the source of truth for result rows.
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table';
@@ -13,6 +17,7 @@ const pageSize = 25;
 
 const fieldClass = 'h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-slate-600 focus:ring-2 focus:ring-slate-200';
 
+// Keep dense table state in one place so toolbar changes produce one API query.
 export function App() {
   const [draft, setDraft] = useState({ search: '', authority: '' });
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -21,6 +26,7 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const openerRef = useRef<HTMLButtonElement | null>(null);
 
+  // Text input waits briefly before querying; a changed filter may invalidate the current page.
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const search = draft.search.trim();
@@ -33,6 +39,7 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [draft, filters.search, filters.authority]);
 
+  // Select filters apply immediately and always return to the first result page.
   const setFilter = (key: keyof Filters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }));
     setPage(1);
@@ -53,6 +60,7 @@ export function App() {
     sortBy: activeSort?.id ?? 'publishedAt',
     sortOrder: activeSort?.desc === false ? 'asc' : 'desc',
   };
+  // Filter, page, and sort state form the cache key; no client-side result filtering.
   const list = useQuery({
     queryKey: ['directives', params],
     queryFn: () => fetchDirectives(params),
@@ -70,6 +78,7 @@ export function App() {
     </div> },
     { accessorKey: 'title', header: 'Directive', size: 350, cell: ({ row }) => <div className="min-w-0">
       <div className="font-mono text-[11px] font-medium text-slate-500">{row.original.reference}</div>
+      {/* Placeholder rows belong to the previous filter; keep them visible but not selectable. */}
       <button type="button" title={row.original.title} disabled={list.isPlaceholderData} onClick={() => { setSelectedId(row.original.id); }}
         className="mt-0.5 block max-w-full truncate text-left text-[13px] font-semibold leading-5 text-slate-800 hover:text-slate-950 hover:underline focus:outline-none focus:underline focus:ring-2 focus:ring-slate-500 disabled:cursor-wait">
         {row.original.title}
@@ -94,6 +103,7 @@ export function App() {
       : <span className="text-xs text-slate-400">—</span> },
   ], [list.isPlaceholderData]);
 
+  // TanStack Table renders columns; the API handles ordering and page boundaries.
   const table = useReactTable({
     data: list.data?.data ?? [], columns, state: { sorting }, manualSorting: true, manualPagination: true,
     enableSortingRemoval: false, getCoreRowModel: getCoreRowModel(),
@@ -182,6 +192,7 @@ export function App() {
               </tr>)}
             </thead>
             <tbody>
+              {/* Keep the table frame visible through loading, failure, and empty results. */}
               {list.isPending && <tr><td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-slate-500">Loading directives…</td></tr>}
               {list.isError && <tr><td colSpan={columns.length} className="px-4 py-12 text-center">
                 <p role="alert" className="text-sm font-medium text-rose-800">Could not load directives. {list.error.message}</p>
@@ -191,6 +202,7 @@ export function App() {
                 <p className="text-sm font-medium text-slate-700">No directives match these filters.</p>
                 <p className="mt-1 text-xs text-slate-500">Try a broader search or use Clear filters above.</p>
               </td></tr>}
+              {/* Row clicks need the same placeholder guard as the title button. */}
               {list.isSuccess && table.getRowModel().rows.map((row) => <tr key={row.id}
                 onClick={(event) => { if (list.isPlaceholderData) return; openerRef.current = event.currentTarget.querySelector('td button'); setSelectedId(row.original.id); }}
                 className={`${list.isPlaceholderData ? 'cursor-wait' : 'cursor-pointer'} border-b border-slate-100 hover:bg-slate-50 ${row.original.highestIssueSeverity === 'ERROR' ? 'border-l-2 border-l-rose-300' : row.original.issueCount > 0 ? 'border-l-2 border-l-amber-300' : 'border-l-2 border-l-transparent'}`}>

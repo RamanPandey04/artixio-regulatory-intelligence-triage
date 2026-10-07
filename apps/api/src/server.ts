@@ -1,3 +1,4 @@
+/** Starts the API with one Prisma client and closes it on shutdown. */
 import { PrismaClient } from '@prisma/client';
 import { createApp } from './app';
 

@@ -1,3 +1,7 @@
+/**
+ * Zod schemas for HTTP input. These reject malformed requests before domain
+ * rules or Prisma writes run.
+ */
 import { z } from 'zod';
 import { directiveStatuses, issueSeverities, priorities } from '@artixio/domain';
 
@@ -6,10 +10,13 @@ export const directiveQuerySchema = z.object({
   authority: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/).optional(),
   status: z.enum(directiveStatuses).optional(),
   priority: z.enum(priorities).optional(),
+  // Explicit strings avoid JavaScript's Boolean('false') pitfall.
   hasIssues: z.enum(['true', 'false']).transform((value) => value === 'true').optional(),
   issueSeverity: z.enum(issueSeverities).optional(),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
+  // Keep list requests bounded, even when a caller bypasses the UI.
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  // This is the same allowlist used to choose Prisma orderBy fields.
   sortBy: z.enum(['publishedAt', 'effectiveAt', 'title', 'reference', 'priority', 'status']).default('publishedAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 }).strict();

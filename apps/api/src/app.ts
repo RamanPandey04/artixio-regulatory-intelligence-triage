@@ -1,3 +1,7 @@
+/**
+ * HTTP boundary for the triage API. Routes validate external input before
+ * passing it to the query and status-update functions.
+ */
 import express, { type RequestHandler } from 'express';
 import type { PrismaClient } from '@prisma/client';
 import { listDirectives, getDirective } from './directives';
@@ -5,10 +9,12 @@ import { updateActionStatus } from './actions';
 import { ApiError, errorHandler } from './errors';
 import { actionStatusBodySchema, directiveQuerySchema, idSchema } from './validation';
 
+// Express 4 needs rejected async route promises forwarded to its error handler.
 const asyncRoute = (handler: RequestHandler): RequestHandler => (request, response, next) => {
   Promise.resolve(handler(request, response, next)).catch(next);
 };
 
+// Injecting Prisma keeps the HTTP layer testable against an isolated schema.
 export function createApp(prisma: PrismaClient) {
   const app = express();
   app.use(express.json({ limit: '100kb' }));
@@ -30,6 +36,7 @@ export function createApp(prisma: PrismaClient) {
   app.get('/api/directives/:id', asyncRoute(async (request, response) => {
     const id = idSchema.parse(request.params.id);
     const directive = await getDirective(prisma, id);
+    // A valid UUID with no record is missing; malformed UUIDs fail Zod with 400.
     if (!directive) throw new ApiError(404, 'NOT_FOUND', 'Directive not found.');
     response.json({ data: directive });
   }));

@@ -1,3 +1,4 @@
+/** UI behavior at the API boundary, including refetch and mutation timing. */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -84,6 +85,7 @@ describe('triage page', () => {
   });
 
   it('does not open a stale row while a filtered page is loading', async () => {
+    // Hold the filtered response so the previous page remains as placeholder data.
     let finishFilter: ((response: Response) => void) | undefined;
     vi.stubGlobal('fetch', vi.fn(async (input: string) => {
       if (input.includes('hasIssues=true')) return new Promise<Response>((resolve) => { finishFilter = resolve; });
