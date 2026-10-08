@@ -157,7 +157,9 @@ async function main(): Promise<void> {
         });
       }
     }
-  }, { timeout: 30_000 });
+  // Remote demo databases add latency to each insert; keep the atomic reset
+  // while allowing the same seed to finish over a network connection.
+  }, { timeout: 180_000 });
 
   console.info(`Seeded ${sources.length} simulated directives across ${authorities.length} authorities.`);
 }

@@ -15,3 +15,8 @@ Thumbs.db
 *.bak
 *.tsbuildinfo
 packages/db/generated/
+
+.vercel/
+deployment/api-bundle.cjs
+.agents/
+skills-lock.json

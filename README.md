@@ -2,6 +2,12 @@
 
 A small triage application for reviewing **simulated** regulatory updates. Compliance officers can filter directives, inspect source-quality warnings, and update action items. The data is fictional; it is not compliance advice.
 
+## Live demo
+
+[Open the verified live demo](https://artixio-regulatory-intelligence-tri.vercel.app).
+
+Vercel serves the Vite frontend and same-origin `/api` through the existing Express app, backed by Neon PostgreSQL. The demo contains 48 simulated directives.
+
 ## Run locally
 
 Requires Node.js 22+, pnpm 10.17.1, and Docker Compose. From the repository root:

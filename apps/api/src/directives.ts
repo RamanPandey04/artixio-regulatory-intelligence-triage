@@ -3,7 +3,7 @@
  * PostgreSQL; only the bounded result page is shaped for the table.
  */
 import { Prisma, type PrismaClient } from '@prisma/client';
-import type { DirectiveQuery } from './validation';
+import type { DirectiveQuery } from './validation.js';
 
 // Compose validated filters as one database predicate so combinations stay consistent.
 export async function listDirectives(prisma: PrismaClient, query: DirectiveQuery) {

@@ -3,8 +3,8 @@
  * source directive fields are outside this write path.
  */
 import type { PrismaClient } from '@prisma/client';
-import { ApiError } from './errors';
-import type { RequestedActionStatus } from './validation';
+import { ApiError } from './errors.js';
+import type { RequestedActionStatus } from './validation.js';
 
 // No-op updates leave history alone; real transitions update resolvedAt and audit together.
 export async function updateActionStatus(prisma: PrismaClient, id: string, status: RequestedActionStatus) {

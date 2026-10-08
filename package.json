@@ -3,7 +3,9 @@
   "private": true,
   "packageManager": "pnpm@10.17.1",
   "scripts": {
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc -p tsconfig.json",
+    "postinstall": "pnpm db:generate",
+    "build:api:vercel": "esbuild deployment/entry.ts --bundle --platform=node --format=cjs --target=node22 --external:@prisma/client --outfile=deployment/api-bundle.cjs",
     "test": "pnpm -r test",
     "db:generate": "pnpm --filter @artixio/db db:generate",
     "db:migrate": "dotenv -e .env -- pnpm --filter @artixio/db db:migrate",
@@ -19,7 +21,11 @@
   "devDependencies": {
     "@types/node": "^22.15.0",
     "dotenv-cli": "^8.0.0",
+    "esbuild": "^0.25.12",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
   }
 }

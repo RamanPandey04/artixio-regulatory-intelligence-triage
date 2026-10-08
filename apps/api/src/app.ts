@@ -4,10 +4,10 @@
  */
 import express, { type RequestHandler } from 'express';
 import type { PrismaClient } from '@prisma/client';
-import { listDirectives, getDirective } from './directives';
-import { updateActionStatus } from './actions';
-import { ApiError, errorHandler } from './errors';
-import { actionStatusBodySchema, directiveQuerySchema, idSchema } from './validation';
+import { listDirectives, getDirective } from './directives.js';
+import { updateActionStatus } from './actions.js';
+import { ApiError, errorHandler } from './errors.js';
+import { actionStatusBodySchema, directiveQuerySchema, idSchema } from './validation.js';
 
 // Express 4 needs rejected async route promises forwarded to its error handler.
 const asyncRoute = (handler: RequestHandler): RequestHandler => (request, response, next) => {

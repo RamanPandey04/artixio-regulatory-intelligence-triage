@@ -1,6 +1,6 @@
 /** Starts the API with one Prisma client and closes it on shutdown. */
 import { PrismaClient } from '@prisma/client';
-import { createApp } from './app';
+import { createApp } from './app.js';
 
 const prisma = new PrismaClient();
 const port = Number(process.env.PORT ?? 3101);
